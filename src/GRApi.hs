@@ -15,8 +15,8 @@ import Web.Authenticate.OAuth
         newCredential)
 import XML
 import Data.AppSettings
-       (GetSetting(..), readSettings, 
-        FileLocation(AutoFromAppName), 
+       (GetSetting(..), readSettings,
+        FileLocation(AutoFromAppName),
         saveSettings, setSetting, Conf)
 import Data.ByteString.Char8 (pack)
 import qualified Data.ByteString.Lazy.Char8 as L8
@@ -31,7 +31,6 @@ import Network.HTTP.Client
        (newManager, responseBody, Manager, httpLbs, method)
 import Network.HTTP.Simple
        (Request, parseRequest, setRequestQueryString, getResponseBody)
-import qualified Text.Pandoc as Pandoc
 import Text.XML (parseText_, def)
 import Control.Exception.Safe -- (IOException(..), catches, try, throw, Exception)
 import Control.Monad (guard)
@@ -249,13 +248,15 @@ printListOfBooks :: [Book] -> IO ()
 printListOfBooks books = do
   let booksEnumerated = (zip [1 :: Integer ..] books)
   for_ booksEnumerated $ \(i, book) -> do
-    let formatEnum = (int % ": " % text % " [" % text % "]\n")
+    let formatEnum = (int % ": " % text % " [" % text % "]" % text % " - " % text % "\n")
     let msg =
           sformat
             formatEnum
             i
             (fromStrict (title book))
             (fromStrict $ fromMaybe "" (bookId book))
+            (fromStrict $ fromMaybe "" (rating book))
+            (fromStrict $ fromMaybe "" (review book))
     out msg
 
 doShowShelf :: AppOptions -> ShelfName -> UserID -> IO ()
@@ -306,19 +307,3 @@ doAddBook opts shelfName bookID = do
   req <- putAddBook gr shelfName bookID
   response <- signRequest gr req
   L8.putStrLn $ getResponseBody response
-
-doShowBook :: AppOptions -> BookID -> IO ()
-doShowBook opts eBookQ = do
-  gr <- doGr opts
-  req <- getShowBook gr eBookQ
-  response <- signRequest gr req
-  let bookInf = parseBookInfo . parseText_ def . decodeUtf8 . responseBody
-  let bookInfo = bookInf response
-  L8.putStrLn $ getResponseBody response
-  case bookInfo of
-    Just t -> do
-      let pd = Pandoc.readHtml Pandoc.def (T.unpack t)
-      case pd of
-        Left _ -> fail "foo" --e
-        Right doc -> out $ T.pack (Pandoc.writeMarkdown Pandoc.def doc)
-    _ -> fail "failed"

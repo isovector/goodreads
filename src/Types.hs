@@ -8,13 +8,13 @@ import Web.Authenticate.OAuth
 
 data Options = Options AppOptions Command
 data Command
-     = FindAuthor AuthorName 
+     = FindAuthor AuthorName
      | ShowFollowers UserID
      | ShowShelf ShelfName UserID
      | FindBook BookTitle
      | AddBook ShelfName BookID
      | ShowBook BookID --(Either BookID BookTitle)
-     
+
 type ShelfName = String
 type BookTitle = String
 type UserID = Int
@@ -63,6 +63,9 @@ instance Show AuthScope where
 data Book = Book {
     title :: Text
   , bookId :: Maybe Text
+  , author :: Maybe Text
+  , rating :: Maybe Text
+  , review :: Maybe Text
 
     } deriving Show
 

@@ -20,20 +20,20 @@ appOptions = AppOptions
         ( short 'l' <> long "limit"
        <> metavar "LIMIT"
        <> help "Limit the number of responses to LIMIT" ))
-    
--- | Helper Function     
+
+-- | Helper Function
 withInfo :: Parser a -> String -> ParserInfo a
 withInfo opts desc = info (helper <*> opts) $ progDesc desc
 
 parseOptions :: Parser Options
-parseOptions = Options <$> appOptions <* version <*> parseCommand 
+parseOptions = Options <$> appOptions <* version <*> parseCommand
 
 version :: Parser (a -> a)
 version = infoOption (Data.Version.showVersion Meta.version)
   (  short 'v'
   <> long "version"
   <> help "Print version information" )
-  
+
 
 -- Commands
 parseCommand :: Parser Command
@@ -48,11 +48,11 @@ parseCommand = subparser $
 parseShowBook :: Parser Command
 parseShowBook = ShowBook
     <$> argument auto (metavar "BOOK_ID_OR_TITLE")
-    
+
 parseAddBook :: Parser Command
 parseAddBook = AddBook
     <$> argument str  (metavar "SHELFNAME")
-    <*> argument auto (metavar "BOOK_ID")  
+    <*> argument auto (metavar "BOOK_ID")
 
 parseFindBook :: Parser Command
 parseFindBook = FindBook
@@ -84,4 +84,3 @@ run (Options app cmd) =
         ShowFollowers uID -> print uID
         ShowShelf shelfName uID -> GRApi.doShowShelf app shelfName uID
         AddBook shelfName bookID -> GRApi.doAddBook app shelfName bookID
-        ShowBook bookID -> GRApi.doShowBook app bookID

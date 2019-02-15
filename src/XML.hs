@@ -33,8 +33,11 @@ parseBookSearch doc =
 
 parseFindBook :: Element -> Maybe Book
 parseFindBook e = Book
-  <$> t "title"       
+  <$> t "title"
   <*> Just (t "id")
+  <*> Just (t "author")
+  <*> Just (t "rating")
+  <*> Just (t "review")
   where t n = e ^? el "work" ./ el "best_book" ./ el n . text
 
 parseGoodreadsFeed :: Document -> Either String [Book]
@@ -52,5 +55,10 @@ parseBook :: Element -> Maybe Book
 parseBook e = Book
   <$> t "title"
   <*> Just (t "id")
-  where t n = e ^? el "review" ./ el "book" ./ el n . text
+  <*> Just (t "author")
+  <*> Just (r "rating")
+  <*> Just (r "body")
+  where
+    t n = e ^? el "review" ./ el "book" ./ el n . text
+    r n = e ^? el "review" ./ el n . text
 

@@ -38,7 +38,6 @@ executables:
     - double-conversion
     - formatting
     - haskeline
-    - pandoc
 tests:
   g-test:
     main: Spec.hs

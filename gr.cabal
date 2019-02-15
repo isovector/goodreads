@@ -1,6 +1,8 @@
--- This file has been generated from package.yaml by hpack version 0.17.0.
+-- This file has been generated from package.yaml by hpack version 0.28.2.
 --
 -- see: https://github.com/sol/hpack
+--
+-- hash: 9c1c73754dc56d65d4c029e06c4562a9369c7fe67dcdba53af98aba266ea4e8d
 
 name:                gr
 version:             0.1.0.0
@@ -27,30 +29,28 @@ executable gr
       src
       app
   build-depends:
-      base >=4.7 && <5
-    , text
-    , xml-lens
-    , xml-conduit
-    , http-client-tls
-    , http-client
-    , HTTP
-    , url
-    , http-types
-    , http-conduit
+      HTTP
+    , app-settings
     , authenticate-oauth
-    , optparse-applicative
-    , utf8-string
-    , containers
+    , base >=4.7 && <5
     , bytestring
     , case-insensitive
-    , safe-exceptions
     , containers
-    , app-settings
-    , lens
     , double-conversion
     , formatting
     , haskeline
-    , pandoc
+    , http-client
+    , http-client-tls
+    , http-conduit
+    , http-types
+    , lens
+    , optparse-applicative
+    , safe-exceptions
+    , text
+    , url
+    , utf8-string
+    , xml-conduit
+    , xml-lens
   other-modules:
       Auth
       GRApi
@@ -58,6 +58,7 @@ executable gr
       Settings
       Types
       XML
+      Paths_gr
   default-language: Haskell2010
 
 test-suite g-test
@@ -65,6 +66,8 @@ test-suite g-test
   hs-source-dirs:
       test
   main-is: Spec.hs
+  other-modules:
+      Paths_gr
   build-depends:
       base
   ghc-options: -threaded -rtsopts -with-rtsopts=-N
