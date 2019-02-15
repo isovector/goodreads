@@ -62,7 +62,6 @@ instance Show AuthScope where
 
 data Book = Book {
     title :: Text
-  , bookId :: Maybe Text
   , author :: Maybe Text
   , rating :: Maybe Text
   , review :: Maybe Text

@@ -220,7 +220,10 @@ getBooksFromShelf conMan user shelf =
   restAPI conMan ("review/list/" ++ show (uid user) ++ ".xml") opts
   where
     opts =
-      [(pack "v", Just $ pack "2"), (pack "shelf", Just $ pack shelf)] :: [(ByteString, Maybe ByteString)]
+      [ (pack "v", Just $ pack "2")
+      , (pack "shelf", Just $ pack shelf)
+      , (pack "per_page", Just $ pack "200")
+      ] :: [(ByteString, Maybe ByteString)]
 
 out :: T.Text -> IO ()
 out txt = runInputT defaultSettings loop
@@ -245,19 +248,19 @@ doFindBook opts findTitle = do
     respToBooks = parseBookSearch . parseText_ def . decodeUtf8 . responseBody
 
 printListOfBooks :: [Book] -> IO ()
-printListOfBooks books = do
-  let booksEnumerated = (zip [1 :: Integer ..] books)
-  for_ booksEnumerated $ \(i, book) -> do
-    let formatEnum = (int % ": " % text % " [" % text % "]" % text % " - " % text % "\n")
-    let msg =
-          sformat
-            formatEnum
-            i
-            (fromStrict (title book))
-            (fromStrict $ fromMaybe "" (bookId book))
-            (fromStrict $ fromMaybe "" (rating book))
-            (fromStrict $ fromMaybe "" (review book))
-    out msg
+printListOfBooks = print
+  -- let booksEnumerated = (zip [1 :: Integer ..] books)
+  -- for_ booksEnumerated $ \(i, book) -> do
+  --   let formatEnum = (int % ": " % text % " [" % text % "]" % text % " - " % text % "\n")
+  --   let msg =
+  --         sformat
+  --           formatEnum
+  --           i
+  --           (fromStrict (title book))
+  --           (fromStrict $ fromMaybe "" (bookId book))
+  --           (fromStrict $ fromMaybe "" (rating book))
+  --           (fromStrict $ fromMaybe "" (review book))
+  --   out msg
 
 doShowShelf :: AppOptions -> ShelfName -> UserID -> IO ()
 doShowShelf opts shelf uID = do
@@ -281,7 +284,7 @@ doShowShelf opts shelf uID = do
   let eBooks = respToBooks resp
   case eBooks of
     Right books -> do
-      printListOfBooks books -- for_ books $ \book -> printT $ title book
+      print $ Map.fromList $ filter ((/= Just "") . review . snd) books -- for_ books $ \book -> printT $ title book
       putStrLn ("OAuth Used: " ++ statusOauth)
       where statusOauth =
               case (snd (head (unCredential (loginCredentials (config gr))))) of
