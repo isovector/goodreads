@@ -1,13 +1,18 @@
 {-# LANGUAGE ScopedTypeVariables #-}
-module Main where
+{-# OPTIONS_GHC -Wall #-}
+
+module Main (main) where
+
+import           Control.Monad
+import           Data.Char
+import           Data.Foldable
+import           Data.Semigroup ((<>))
+import qualified Data.Text as T
+import           Data.Version (showVersion)
 import qualified GRApi
-import Options.Applicative
-import Data.Semigroup ((<>))
-import Types
+import           Options.Applicative
 import qualified Paths_gr as Meta (version)
-import Data.Version (showVersion)
-import qualified Data.ByteString.Lazy.Char8 as L8
-import Control.Exception (SomeException, try)
+import           Types
 
 appOptions :: Parser AppOptions
 appOptions = AppOptions
@@ -38,33 +43,7 @@ version = infoOption (Data.Version.showVersion Meta.version)
 -- Commands
 parseCommand :: Parser Command
 parseCommand = subparser $
-    command "find"          (parseFindBook      `withInfo` "Find a book") <>
-    command "findAuthor"    (parseFindAuthor    `withInfo` "Find an author") <>
-    command "showFollowers" (parseShowFollowers `withInfo` "Show followers of user with id") <>
-    command "show"          (parseShowShelf     `withInfo` "Show a shelf, e.GRApi. to-read") <>
-    command "book"          (parseShowBook      `withInfo` "Show information about a book.") <>
-    command "add"           (parseAddBook       `withInfo` "Add a book to a shelf.")
-
-parseShowBook :: Parser Command
-parseShowBook = ShowBook
-    <$> argument auto (metavar "BOOK_ID_OR_TITLE")
-
-parseAddBook :: Parser Command
-parseAddBook = AddBook
-    <$> argument str  (metavar "SHELFNAME")
-    <*> argument auto (metavar "BOOK_ID")
-
-parseFindBook :: Parser Command
-parseFindBook = FindBook
-    <$> argument str (metavar "TITLE")
-
-parseFindAuthor :: Parser Command
-parseFindAuthor = FindAuthor
-    <$> argument str (metavar "AUTHORNAME")
-
-parseShowFollowers :: Parser Command
-parseShowFollowers = ShowFollowers
-    <$> argument auto (metavar "GOODREADS_USER_ID" <> value 0) -- FIXME arguments to commands?
+    command "show"          (parseShowShelf     `withInfo` "Show a shelf, e.GRApi. to-read")
 
 parseShowShelf :: Parser Command
 parseShowShelf = ShowShelf
@@ -77,10 +56,22 @@ main =
     execParser (parseOptions `withInfo` "Interact with the Goodreads API. See --help for options.")
 
 run :: Options -> IO ()
-run (Options app cmd) =
-    case cmd of
-        FindBook bookTitle -> GRApi.doFindBook app bookTitle
-        FindAuthor authorName -> GRApi.doFindAuthor app authorName
-        ShowFollowers uID -> print uID
-        ShowShelf shelfName uID -> GRApi.doShowShelf app shelfName uID
-        AddBook shelfName bookID -> GRApi.doAddBook app shelfName bookID
+run (Options app cmd) = case cmd of
+  ShowShelf shelfName uID -> do
+    yo <- GRApi.doShowShelf app shelfName uID
+    for_ yo $ \b -> do
+      writeFile (mkFileName b) $ show b
+
+mkFileName :: Book -> FilePath
+mkFileName b = "site/books/" <> canonicalName b <> ".book"
+
+canonicalName :: Book -> String
+canonicalName = replace ' ' '-'
+              . reverse . dropWhile (== ' ') . reverse
+              . filter (liftM2 (||) isAlphaNum isSpace)
+              . fmap toLower
+              . liftM2 spaceConcat (maybe "" T.unpack . author)
+                                   (T.unpack . title)
+  where spaceConcat a b = a ++ " " ++ b
+        replace a b = map $ \c -> if (c == a) then b else c
+

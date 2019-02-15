@@ -4,43 +4,29 @@
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 
-module GRApi where
+module GRApi (doShowShelf) where
 
-import Auth
-       (signRequest, grAuthenticate, credz, defaultAuthHandler)
-import Settings
-import Types
-import Web.Authenticate.OAuth
-       (unCredential,
-        newCredential)
-import XML
-import Data.AppSettings
-       (GetSetting(..), readSettings,
-        FileLocation(AutoFromAppName),
-        saveSettings, setSetting, Conf)
-import Data.ByteString.Char8 (pack)
-import qualified Data.ByteString.Lazy.Char8 as L8
-import Data.ByteString.UTF8 (ByteString)
-import Data.Foldable (for_)
-import qualified Data.Text as T
-import Data.Text.Lazy (fromStrict)
-import Data.Text.Lazy.Encoding (decodeUtf8)
-import Formatting
-import Network.HTTP (urlEncode)
-import Network.HTTP.Client
-       (newManager, responseBody, Manager, httpLbs, method)
-import Network.HTTP.Simple
-       (Request, parseRequest, setRequestQueryString, getResponseBody)
-import Text.XML (parseText_, def)
-import Control.Exception.Safe -- (IOException(..), catches, try, throw, Exception)
-import Control.Monad (guard)
+import           Auth (signRequest, grAuthenticate, credz, defaultAuthHandler)
+import           Control.Exception.Safe -- (IOException(..), catches, try, throw, Exception)
+import           Control.Monad (guard)
+import           Data.AppSettings (GetSetting(..), readSettings, FileLocation(AutoFromAppName), saveSettings, setSetting, Conf)
+import           Data.ByteString.Char8 (pack)
+import           Data.ByteString.UTF8 (ByteString)
 import qualified Data.ByteString.UTF8 as BSU
 import qualified Data.Map as Map
-import Data.Maybe (fromMaybe)
-import Network.HTTP.Client.TLS (tlsManagerSettings)
-import System.Console.Haskeline
-import System.Environment (getEnv)
-import System.IO.Error (isDoesNotExistError)
+import           Data.Maybe (fromMaybe)
+import qualified Data.Text as T
+import           Data.Text.Lazy.Encoding (decodeUtf8)
+import           Network.HTTP.Client (newManager, responseBody, Manager)
+import           Network.HTTP.Client.TLS (tlsManagerSettings)
+import           Network.HTTP.Simple (Request, parseRequest, setRequestQueryString)
+import           Settings
+import           System.Environment (getEnv)
+import           System.IO.Error (isDoesNotExistError)
+import           Text.XML (parseText_, def)
+import           Types
+import           Web.Authenticate.OAuth (newCredential)
+import           XML
 
 -- | Auth Stuff: API Key and API Secret, get from system environment.
 getKeysFromEnv :: IO AppCredentials
@@ -173,46 +159,6 @@ doGr app = do
       manager <- newManager tlsManagerSettings
       initGr manager authReq defaultAuthHandler
 
-putAddBook
-  :: MonadThrow m
-  => Gr -> ShelfName -> BookID -> m Request
-putAddBook conMan shelfName bookID = do
-  let i = restAPI conMan ("shelf/add_to_shelf.xml") opts
-        where
-          opts =
-            [ (pack "name", Just $ pack shelfName)
-            , (pack "book_id", Just $ pack $ show bookID)
-            ] :: [(ByteString, Maybe ByteString)]
-  z <- i
-  let req = z {method = "POST"}
-  return req
-
-getShowBook
-  :: MonadThrow m
-  => Gr -> BookID -> m Request
-getShowBook conMan eBookQ = do
-  let (uri, opts) = ("book/show/" ++ show eBookQ ++ ".xml", [])
-  restAPI conMan uri opts
-
-getFindAuthorByName
-  :: MonadThrow m
-  => Gr -> AuthorName -> m Request
-getFindAuthorByName conMan authorName = do
-  restAPI conMan ("api/author_url/" ++ (urlEncode authorName)) []
-
-getUserFollowers
-  :: MonadThrow m
-  => Gr -> User -> m Request
-getUserFollowers conMan user =
-  restAPI conMan ("user/" ++ show (uid user) ++ "/followers.xml") []
-
-getFindBooks
-  :: MonadThrow m
-  => Gr -> String -> m Request
-getFindBooks conMan t = restAPI conMan ("search/index.xml") opts
-  where
-    opts = [(pack "q", Just $ pack t)] :: [(ByteString, Maybe ByteString)]
-
 getBooksFromShelf
   :: MonadThrow m
   => Gr -> User -> String -> m Request
@@ -225,44 +171,7 @@ getBooksFromShelf conMan user shelf =
       , (pack "per_page", Just $ pack "200")
       ] :: [(ByteString, Maybe ByteString)]
 
-out :: T.Text -> IO ()
-out txt = runInputT defaultSettings loop
-  where
-    loop :: InputT IO ()
-    loop = do
-      outputStr $ T.unpack txt
-      return ()
-
-doFindBook :: AppOptions -> String -> IO ()
-doFindBook opts findTitle = do
-  gr <- doGr opts
-  req <- getFindBooks gr findTitle
-  resp <- httpLbs req (connectionManager gr)
-  let eBooks = respToBooks resp
-  case eBooks of
-    Right books -> printListOfBooks books
-    Left _ -> do
-      print req -- FIXME: Case debug
-      fail "failed in parsing." -- FIXME: undefined -- some error in parsing See Throw, control.exceptions
-  where
-    respToBooks = parseBookSearch . parseText_ def . decodeUtf8 . responseBody
-
-printListOfBooks :: [Book] -> IO ()
-printListOfBooks = print
-  -- let booksEnumerated = (zip [1 :: Integer ..] books)
-  -- for_ booksEnumerated $ \(i, book) -> do
-  --   let formatEnum = (int % ": " % text % " [" % text % "]" % text % " - " % text % "\n")
-  --   let msg =
-  --         sformat
-  --           formatEnum
-  --           i
-  --           (fromStrict (title book))
-  --           (fromStrict $ fromMaybe "" (bookId book))
-  --           (fromStrict $ fromMaybe "" (rating book))
-  --           (fromStrict $ fromMaybe "" (review book))
-  --   out msg
-
-doShowShelf :: AppOptions -> ShelfName -> UserID -> IO ()
+doShowShelf :: AppOptions -> ShelfName -> UserID -> IO (Map.Map T.Text Book)
 doShowShelf opts shelf uID = do
   gr <- doGr opts
   let user_id =
@@ -284,12 +193,7 @@ doShowShelf opts shelf uID = do
   let eBooks = respToBooks resp
   case eBooks of
     Right books -> do
-      print $ Map.fromList $ filter ((/= Just "") . review . snd) books -- for_ books $ \book -> printT $ title book
-      putStrLn ("OAuth Used: " ++ statusOauth)
-      where statusOauth =
-              case (snd (head (unCredential (loginCredentials (config gr))))) of
-                "" -> "NO"
-                _ -> "YES/MAYBE"
+      pure $ Map.fromList $ filter ((/= Just "") . review . snd) books
     Left _ -> do
       print req -- FIXME: Case debug
       fail "failed in parsing." -- FIXME: undefined -- some error in parsing See Throw, control.exceptions
@@ -297,16 +201,3 @@ doShowShelf opts shelf uID = do
     respToBooks =
       parseGoodreadsFeed . parseText_ def . decodeUtf8 . responseBody
 
-doFindAuthor :: AppOptions -> AuthorName -> IO ()
-doFindAuthor opts authorName = do
-  gr <- doGr opts
-  req <- getFindAuthorByName gr authorName
-  response <- signRequest gr req
-  L8.putStrLn $ getResponseBody response
-
-doAddBook :: AppOptions -> ShelfName -> BookID -> IO ()
-doAddBook opts shelfName bookID = do
-  gr <- doGr opts
-  req <- putAddBook gr shelfName bookID
-  response <- signRequest gr req
-  L8.putStrLn $ getResponseBody response
